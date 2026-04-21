@@ -62,6 +62,8 @@ interface MatchSession {
   currentBowler: string;
   currentOver: string[];
   lastBall: string;
+  maxOvers: number;
+  maxBowlerOvers: number;
 }
 
 const rulePresets: Record<RuleMode, RuleSettings> = {
@@ -126,6 +128,8 @@ const defaultSession: MatchSession = {
   currentBowler: '',
   currentOver: [],
   lastBall: '',
+  maxOvers: 5,
+  maxBowlerOvers: 1,
 };
 
 const App: React.FC = () => {
@@ -217,15 +221,15 @@ const App: React.FC = () => {
         battingStats[striker].balls += 1;
         legalDelivery = true;
         striker = ''; // New batsman needed
-      } else if (type === 'Wd' ; type === 'Nb') {
+      } else if (type === 'Wd' || type === 'Nb') {
         const award = type === 'Wd' ? rules.wideRuns : rules.noBallRuns;
         curInnings.score += award;
         bowlingStats[currentBowler].runs += award;
         lastBall = `${type} +${award}`;
       } else {
-        const runs = type === 'Bye' ; type === 'Lb' ? 1 : parseInt(type, 10);
+        const runs = type === 'Bye' || type === 'Lb' ? 1 : parseInt(type, 10);
         curInnings.score += runs;
-        if (type !== 'Bye' ; type !== 'Lb') {
+        if (type !== 'Bye' && type !== 'Lb') {
           battingStats[striker].runs += runs;
           battingStats[striker].balls += 1;
           if (runs === 4) battingStats[striker].fours += 1;
@@ -259,7 +263,7 @@ const App: React.FC = () => {
       innings[curIdx] = curInnings;
 
       // Check for innings end: 10 wickets or overs completed
-      const inningsEnded = curInnings.wickets >= 10 ; curInnings.overs >= prev.maxOvers;
+      const inningsEnded = curInnings.wickets >= 10 || curInnings.overs >= prev.maxOvers;
       if (inningsEnded) {
         if (curIdx === 0) {
           setSession(prev => ({ ...prev, currentInnings: 1, currentBatter1: '', currentBatter2: '', currentBowler: '', currentOver: [], battingTeam: prev.battingTeam === 'A' ? 'B' : 'A' }));
@@ -270,7 +274,7 @@ const App: React.FC = () => {
       }
 
       const target = curIdx === 1 ? innings[0].score + 1 : null;
-      if (curIdx === 1 ; target !== null ; curInnings.score >= target) {
+      if (curIdx === 1 && target !== null && curInnings.score >= target) {
         saveToHistory({ ...prev, innings });
         setTimeout(() => setView('SUMMARY'), 400);
       }
@@ -333,7 +337,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <label>Ground Fee</label>
-            <input type="number" value={session.groundFee} onChange={e => setSession(prev => ({ ...prev, groundFee: parseInt(e.target.value, 10) ; 0 }))} />
+            <input type="number" value={session.groundFee} onChange={e => setSession(prev => ({ ...prev, groundFee: parseInt(e.target.value, 10) || 0 }))} />
           </div>
         </div>
       </div>
@@ -356,7 +360,7 @@ const App: React.FC = () => {
         <Play fill="black" /> Create New Match
       </button>
 
-      {history.length > 0 ; (
+      {history.length > 0 && (
         <div className="glass-card history-card">
           <div className="history-header">
             <h3>Match History</h3>
@@ -365,10 +369,10 @@ const App: React.FC = () => {
           {history.map((m, idx) => (
             <div key={idx} className="history-item">
               <div>
-                <p className="history-title">{m.matchName ; 'Street Cricket Match'}</p>
+                <p className="history-title">{m.matchName || 'Street Cricket Match'}</p>
                 <p className="score-overs">{m.date}</p>
               </div>
-              <p className="history-cost">₹{Math.ceil((m.groundFee + m.waterCost) / (m.players.length ; 1))}/head</p>
+              <p className="history-cost">₹{Math.ceil((m.groundFee + m.waterCost) / (m.players.length || 1))}/head</p>
             </div>
           ))}
           <button className="btn-secondary" onClick={() => { localStorage.removeItem('cric_history'); setHistory([]); }}>Clear History</button>
@@ -394,7 +398,7 @@ const App: React.FC = () => {
               placeholder="Add player name"
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' ; (addPlayer(name), setName(''))}
+              onKeyPress={e => e.key === 'Enter' && (addPlayer(name), setName(''))}
             />
             <button className="btn-primary compact" onClick={() => { addPlayer(name); setName(''); }}>
               <Plus />
@@ -476,7 +480,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {session.commonPlayers.length > 0 ; (
+        {session.commonPlayers.length > 0 && (
           <div className="glass-card common-card">
             <h3>Common Players</h3>
             <div className="common-grid">
@@ -493,7 +497,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <button className="btn-primary" onClick={() => setView('TOSS')} disabled={session.teamA.length === 0 ; session.teamB.length === 0}>
+        <button className="btn-primary" onClick={() => setView('TOSS')} disabled={session.teamA.length === 0 || session.teamB.length === 0}>
           Ready for toss
         </button>
       </div>
@@ -563,7 +567,7 @@ const App: React.FC = () => {
         <section className="score-display">
           <div className="score-main">{curInnings.score}/{curInnings.wickets}</div>
           <p className="score-overs">Overs: {curInnings.overs}.{curInnings.balls} / {session.maxOvers}</p>
-          {target ; <p className="accent-text">Target: {target}</p>}
+          {target && <p className="accent-text">Target: {target}</p>}
           <p className="score-mini">{session.groundName} • {session.mode} mode</p>
         </section>
 
@@ -597,7 +601,7 @@ const App: React.FC = () => {
           <div className="glass-card status-card">
             <div>
               <p className="score-overs">Last ball</p>
-              <div className="status-text">{session.lastBall ; 'Ready for the first delivery'}</div>
+              <div className="status-text">{session.lastBall || 'Ready for the first delivery'}</div>
             </div>
             <div>
               <p className="score-overs">Current over</p>
@@ -632,9 +636,9 @@ const App: React.FC = () => {
           ))}
           <button disabled={!session.currentBowler || !session.currentBatter1 || !session.currentBatter2} className="score-btn" onClick={() => recordBall('Wd')}>Wd</button>
           <button disabled={!session.currentBowler || !session.currentBatter1 || !session.currentBatter2} className="score-btn" onClick={() => recordBall('Nb')}>Nb</button>
-          <button disabled={!session.currentBowler || !session.currentBatter1 ; !session.currentBatter2} className="score-btn" onClick={() => recordBall('Bye')}>Bye</button>
-          <button disabled={!session.currentBowler || !session.currentBatter1 ; !session.currentBatter2} className="score-btn" onClick={() => recordBall('Lb')}>Lb</button>
-          <button disabled={!session.currentBowler || !session.currentBatter1 ; !session.currentBatter2} className="score-btn wicket" onClick={() => recordBall('W')}>W</button>
+          <button disabled={!session.currentBowler || !session.currentBatter1 || !session.currentBatter2} className="score-btn" onClick={() => recordBall('Bye')}>Bye</button>
+          <button disabled={!session.currentBowler || !session.currentBatter1 || !session.currentBatter2} className="score-btn" onClick={() => recordBall('Lb')}>Lb</button>
+          <button disabled={!session.currentBowler || !session.currentBatter1 || !session.currentBatter2} className="score-btn wicket" onClick={() => recordBall('W')}>W</button>
         </div>
       </div>
     );
@@ -701,12 +705,12 @@ const App: React.FC = () => {
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          {view === 'LOBBY' ; <LobbyView />}
-          {view === 'POLL' ; <PollView />}
-          {view === 'TEAMS' ; <TeamsView />}
-          {view === 'TOSS' ; <TossView />}
-          {view === 'SCORING' ; <ScoringView />}
-          {view === 'SUMMARY' ; <SummaryView />}
+          {view === 'LOBBY' && <LobbyView />}
+          {view === 'POLL' && <PollView />}
+          {view === 'TEAMS' && <TeamsView />}
+          {view === 'TOSS' && <TossView />}
+          {view === 'SCORING' && <ScoringView />}
+          {view === 'SUMMARY' && <SummaryView />}
         </motion.div>
       </AnimatePresence>
     </div>
